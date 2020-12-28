@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import torch
 from fairseq.data import FairseqDataset, data_utils
+from .language_pair_dataset import LanguagePairDataset
 
 
 logger = logging.getLogger(__name__)
@@ -118,7 +119,8 @@ def collate(
     batch = {
         "id": id,
         "nsentences": len(samples),
-        "ntokens": ntokens,
+        "src_ntokens": src_ntokens,
+        "tgt_ntokens": tgt_ntokens, 
         "net_input": {
             "src_tokens": src_tokens,
             "src_lengths": src_lengths,
@@ -318,7 +320,6 @@ class BidirectionalLanguagePairDataset(LanguagePairDataset):
         # EOS from end of src sentence if it exists. This is useful when we use
         # use existing datasets for opposite directions i.e., when we want to
         # use tgt_dataset as src_dataset and vice versa
-        # TODO: do it for target
         if self.append_eos_to_target:
             eos = self.tgt_dict.eos() if self.tgt_dict else self.src_dict.eos()
             if self.tgt and self.tgt[index][-1] != eos:

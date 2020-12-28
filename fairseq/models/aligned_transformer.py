@@ -5,8 +5,9 @@ import torch
 import torch.nn as nn
 from fairseq import utils
 from fairseq.models import (
+    BaseFairseqModel,
+    FairseqDecoder,
     FairseqEncoder,
-    FairseqEncoderDecoderModel,
     FairseqIncrementalDecoder,
     register_model,
     register_model_architecture,
@@ -33,10 +34,8 @@ DEFAULT_MAX_TARGET_POSITIONS = 1024
 
 
 @register_model("aligned_transformer")
-class AlignedTransformerModel(FairseqEncoderDecoderModel):
+class AlignedTransformerModel(BaseFairseqModel):
     """
-    Transformer model from `"Attention Is All You Need" (Vaswani, et al, 2017)
-    <https://arxiv.org/abs/1706.03762>`_.
 
     Args:
         src_encoder (TransformerEncoder): the src encoder
@@ -53,9 +52,18 @@ class AlignedTransformerModel(FairseqEncoderDecoderModel):
     """
 
     def __init__(self, args, src_encoder, tgt_encoder, src_decoder, tgt_decoder):
-        super().__init__(src_encoder, tgt_encoder, src_decoder, tgt_decoder)
+        super().__init__()
         self.args = args
         self.supports_align_args = True
+
+        self.src_encoder = src_encoder
+        self.tgt_encoder = tgt_encoder
+        self.src_decoder = src_decoder
+        self.tgt_decoder = tgt_decoder
+        assert isinstance(self.src_encoder, FairseqEncoder)
+        assert isinstance(self.tgt_encoder, FairseqEncoder)
+        assert isinstance(self.src_decoder, FairseqDecoder)
+        assert isinstance(self.tgt_decoder, FairseqDecoder)
 
     @staticmethod
     def add_args(parser):
@@ -175,23 +183,31 @@ class AlignedTransformerModel(FairseqEncoderDecoderModel):
                 raise ValueError(
                     "--share-all-embeddings not compatible with --decoder-embed-path"
                 )
-            encoder_embed_tokens = cls.build_embedding(
+            src_encoder_embed_tokens = cls.build_embedding(
                 args, src_dict, args.encoder_embed_dim, args.encoder_embed_path
             )
-            decoder_embed_tokens = encoder_embed_tokens
+            tgt_encoder_embed_tokens = src_encoder_embed_tokens
+            src_decoder_embed_tokens = src_encoder_embed_tokens
+            tgt_decoder_embed_tokens = src_encoder_embed_tokens
             args.share_decoder_input_output_embed = True
         else:
-            encoder_embed_tokens = cls.build_embedding(
+            src_encoder_embed_tokens = cls.build_embedding(
                 args, src_dict, args.encoder_embed_dim, args.encoder_embed_path
             )
-            decoder_embed_tokens = cls.build_embedding(
+            tgt_encoder_embed_tokens = cls.build_embedding(
+                args, tgt_dict, args.encoder_embed_dim, args.encoder_embed_path
+            )
+            src_decoder_embed_tokens = cls.build_embedding(
+                args, src_dict, args.decoder_embed_dim, args.decoder_embed_path
+            )
+            tgt_decoder_embed_tokens = cls.build_embedding(
                 args, tgt_dict, args.decoder_embed_dim, args.decoder_embed_path
             )
 
-        src_encoder = cls.build_encoder(args, src_dict, encoder_embed_tokens)
-        tgt_encoder = cls.build_encoder(args, tgt_dict, encoder_embed_tokens)
-        src_decoder = cls.build_decoder(args, src_dict, decoder_embed_tokens)
-        tgt_decoder = cls.build_decoder(args, tgt_dict, decoder_embed_tokens)
+        src_encoder = cls.build_encoder(args, src_dict, src_encoder_embed_tokens)
+        tgt_encoder = cls.build_encoder(args, tgt_dict, tgt_encoder_embed_tokens)
+        src_decoder = cls.build_decoder(args, src_dict, src_decoder_embed_tokens)
+        tgt_decoder = cls.build_decoder(args, tgt_dict, tgt_decoder_embed_tokens)
         return cls(args, src_encoder, tgt_encoder, src_decoder, tgt_decoder)
 
     @classmethod
@@ -223,7 +239,10 @@ class AlignedTransformerModel(FairseqEncoderDecoderModel):
         self,
         src_tokens,
         src_lengths,
-        prev_output_tokens,
+        prev_output_src_tokens,
+        tgt_tokens,
+        tgt_lengths,
+        prev_output_tgt_tokens,
         return_all_hiddens: bool = True,
         features_only: bool = False,
         alignment_layer: Optional[int] = None,
@@ -240,8 +259,9 @@ class AlignedTransformerModel(FairseqEncoderDecoderModel):
             src_tokens, src_lengths=src_lengths, return_all_hiddens=return_all_hiddens
         )
         tgt_encoder_out = self.tgt_encoder(
-            src_tokens, src_lengths=src_lengths, return_all_hiddens=return_all_hiddens
+            tgt_tokens, src_lengths=tgt_lengths, return_all_hiddens=return_all_hiddens
         )
+
         if train_mode == 1:
             src_decoder_out = self.src_decoder(
                 prev_output_src_tokens,
@@ -261,7 +281,7 @@ class AlignedTransformerModel(FairseqEncoderDecoderModel):
                 src_lengths=src_lengths,
                 return_all_hiddens=return_all_hiddens,
             )
-            return src_encoder_out, tgt_encoder_out, src_decoder_out, tgt_decoder_out
+            return src_decoder_out, tgt_decoder_out, src_encoder_out, tgt_encoder_out
         elif train_mode == 2:
             src_decoder_out = self.src_decoder(
                 prev_output_src_tokens,
@@ -305,6 +325,24 @@ class AlignedTransformerModel(FairseqEncoderDecoderModel):
         else:
             raise NotImplementedError
 
+    def get_src_tokens(self, sample, net_output):
+        """Get sources from either the sample or the net's output."""
+        return sample["net_input"]["src_tokens"]
+
+    def get_tgt_tokens(self, sample, net_output):
+        """Get targets from either the sample or the net's output."""
+        return sample["net_input"]["tgt_tokens"]
+
+    def get_norma(self):
+        pass
+
+    def max_positions(self):
+        """Maximum length supported by the model."""
+        return (
+            self.src_encoder.max_positions(), self.tgt_encoder.max_positions(),
+            self.src_decoder.max_positions(), self.tgt_decoder.max_positions(),
+        )
+
     @torch.jit.export
     def get_normalized_probs(
         self,
@@ -312,7 +350,6 @@ class AlignedTransformerModel(FairseqEncoderDecoderModel):
         log_probs: bool,
         sample: Optional[Dict[str, Tensor]] = None,
     ):
-        # TODO: write net_output and log_probs
         """Get normalized probabilities (or log probs) from a net's output."""
         return self.get_normalized_probs_scriptable(net_output, log_probs, sample)
 
