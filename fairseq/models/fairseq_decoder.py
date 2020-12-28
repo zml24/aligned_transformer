@@ -5,6 +5,7 @@
 
 from typing import Dict, List, Optional, Tuple
 
+import torch
 import torch.nn as nn
 from fairseq import utils
 from torch import Tensor
@@ -74,6 +75,9 @@ class FairseqDecoder(nn.Module):
 
         logits = net_output[0]
         if log_probs:
+            print(torch.isnan(logits).sum(), logits.numel())
+            tmp = utils.log_softmax(logits, dim=-1, onnx_trace=self.onnx_trace)
+            print(tmp)
             return utils.log_softmax(logits, dim=-1, onnx_trace=self.onnx_trace)
         else:
             return utils.softmax(logits, dim=-1, onnx_trace=self.onnx_trace)

@@ -621,7 +621,6 @@ class Trainer(object):
             with torch.autograd.profiler.record_function("clip-grads"):
                 # clip grads
                 grad_norm = self.clip_grad_norm(self.cfg.optimization.clip_norm)
-                print(grad_norm)
 
             # check that grad norms are consistent across workers
             # on tpu check tensor is slow
@@ -634,6 +633,7 @@ class Trainer(object):
                 if not torch.isfinite(grad_norm).all():
                     # check local gradnorm single GPU case, trigger NanDetector
                     raise FloatingPointError("gradients are Nan/Inf")
+                    # raise OverflowError("gradients are Nan/Inf")
 
             with torch.autograd.profiler.record_function("optimizer"):
                 # take an optimization step

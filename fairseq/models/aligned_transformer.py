@@ -333,9 +333,6 @@ class AlignedTransformerModel(BaseFairseqModel):
         """Get targets from either the sample or the net's output."""
         return sample["net_input"]["tgt_tokens"]
 
-    def get_norma(self):
-        pass
-
     def max_positions(self):
         """Maximum length supported by the model."""
         return (
