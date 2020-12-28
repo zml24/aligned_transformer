@@ -149,7 +149,6 @@ class MultiheadAttention(nn.Module):
         tgt_len, bsz, embed_dim = query.size()
         assert embed_dim == self.embed_dim
         assert list(query.size()) == [tgt_len, bsz, embed_dim]
-
         if (
             not self.onnx_trace
             and not is_tpu  # don't use PyTorch version on TPUs
@@ -158,6 +157,7 @@ class MultiheadAttention(nn.Module):
             # A workaround for quantization to work. Otherwise JIT compilation
             # treats bias in linear module as method.
             and not torch.jit.is_scripting()
+            and False
         ):
             assert key is not None and value is not None
             return F.multi_head_attention_forward(
@@ -338,7 +338,7 @@ class MultiheadAttention(nn.Module):
             if not is_tpu:
                 attn_weights = attn_weights.masked_fill(
                     key_padding_mask.unsqueeze(1).unsqueeze(2).to(torch.bool),
-                    float("-inf"),
+                    1e-4
                 )
             else:
                 attn_weights = attn_weights.transpose(0, 2)
