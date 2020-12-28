@@ -8,23 +8,10 @@ from fairseq.models import (
     BaseFairseqModel,
     FairseqDecoder,
     FairseqEncoder,
-    FairseqIncrementalDecoder,
     register_model,
     register_model_architecture,
 )
 from fairseq.models.transformer import TransformerEncoder, TransformerDecoder
-from fairseq.modules import (
-    AdaptiveSoftmax,
-    FairseqDropout,
-    LayerDropModuleList,
-    LayerNorm,
-    PositionalEmbedding,
-    SinusoidalPositionalEmbedding,
-    TransformerDecoderLayer,
-    TransformerEncoderLayer,
-)
-from fairseq.modules.checkpoint_activations import checkpoint_wrapper
-from fairseq.modules.quant_noise import quant_noise as apply_quant_noise_
 from torch import Tensor
 from .transformer import Embedding
 
