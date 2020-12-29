@@ -827,6 +827,11 @@ class GenerationConfig(FairseqDataclass):
         default=False,
         metadata={"help": "if set, dont use seed for initializing random generators"},
     )
+    # Aligned Transformer
+    direction: Optional[str] = field(
+        default=None,
+        metadata={"help": "generation direction of Aligned Transformer"},
+    )
 
 
 @dataclass

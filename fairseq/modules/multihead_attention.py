@@ -338,7 +338,7 @@ class MultiheadAttention(nn.Module):
             if not is_tpu:
                 attn_weights = attn_weights.masked_fill(
                     key_padding_mask.unsqueeze(1).unsqueeze(2).to(torch.bool),
-                    1e-4
+                    float("-inf"),
                 )
             else:
                 attn_weights = attn_weights.transpose(0, 2)

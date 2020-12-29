@@ -1,4 +1,4 @@
-<p align="center">
+<!-- <p align="center">
   <img src="docs/fairseq_logo.png" width="150">
   <br />
   <br />
@@ -213,4 +213,201 @@ Please cite as:
   booktitle = {Proceedings of NAACL-HLT 2019: Demonstrations},
   year = {2019},
 }
+``` -->
+
+# Aligned Transformer
+
+|       Model        | IWSLT14 De-En | IWSLT14 En-De | WMT16 En-De |
+| :----------------: | :-----------: | :-----------: | :---------: |
+|    Transformer     |       1       |       3       |    27.70    |
+|   Ours. No align   |       2       |       4       |      5      |
+|   Ours. Aligned    |       6       |       7       |      8      |
+| Ours. Aligned + lm |       9       |      10       |     11      |
+
+## IWSLT14 De-En
+
+To get the binary dataset, follow [fairseq's example](https://github.com/pytorch/fairseq/tree/master/examples/translation)
+
+```shell
+cd examples/translation/
+bash prepare-iwslt14.sh
+cd ../..
+
+TEXT=examples/translation/iwslt14.tokenized.de-en
+fairseq-preprocess \
+    --source-lang de --target-lang en \
+    --trainpref $TEXT/train --validpref $TEXT/valid --testpref $TEXT/test \
+    --destdir data-bin/iwslt14.tokenized.de-en \
+    --workers 20
 ```
+
+To reproduce a forward Transformer baseline (assume running on a P100 GPU)
+```shell
+fairseq-train \
+    data-bin/iwslt14.tokenized.de-en \
+    --arch transformer_iwslt_de_en --share-decoder-input-output-embed \
+    --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 5.0 \
+    --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
+    --dropout 0.3 --weight-decay 0.0001 \
+    --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
+    --max-tokens 3584 --save-dir checkpoints/forward \
+    --keep-last-epochs 10 --patience 10
+
+python scripts/average_checkpoints.py \
+    --inputs checkpoints/forward \
+    --num-epoch-checkpoints 10 \
+    --output checkpoints/forward/checkpoint.avg10.pt
+
+fairseq-generate \
+    data-bin/iwslt14.tokenized.de-en \
+    --path checkpoints/forward/checkpoint.avg10.pt \
+    --batch-size 128 --beam 5 --remove-bpe > checkpoints/forward/gen.out
+
+bash scripts/compound_split_bleu.sh checkpoints/forward/gen.out
+
+# fairseq-generate
+#     data-bin/iwslt14.tokenized.de-en \
+#     --path checkpoints/forward/checkpoint_best.pt \
+#     --batch-size 128 --beam 5 --remove-bpe --quiet
+```
+
+To reproduce a backward Transformer baseline
+```shell
+fairseq-train \
+    data-bin/iwslt14.tokenized.de-en -s en -t de \
+    --arch transformer_iwslt_de_en --share-decoder-input-output-embed \
+    --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 5.0 \
+    --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
+    --dropout 0.3 --weight-decay 0.0001 \
+    --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
+    --max-tokens 3584 --save-dir checkpoints/backward \
+    --keep-last-epochs 10 --patience 10
+
+python scripts/average_checkpoints.py \
+    --inputs checkpoints/backward \
+    --num-epoch-checkpoints 10 \
+    --output checkpoints/backward/checkpoint.avg10.pt
+
+fairseq-generate \
+    data-bin/iwslt14.tokenized.de-en -s en -t de \
+    --path checkpoints/backward/checkpoint.avg10.pt \
+    --batch-size 128 --beam 5 --remove-bpe > checkpoints/backward/gen.out
+
+bash scripts/compound_split_bleu.sh checkpoints/backward/gen.out
+
+# 27.35
+# fairseq-generate
+#     data-bin/iwslt14.tokenized.de-en -s en -t de \
+#     --path checkpoints/backward/checkpoint_best.pt \
+#     --batch-size 128 --beam 5 --remove-bpe --quiet
+```
+
+To reproduce a bidirectional Transformer
+```shell
+fairseq-train --task aligned_translation \
+    data-bin/iwslt14.tokenized.de-en \
+    --arch aligned_transformer_iwslt_de_en --share-decoder-input-output-embed \
+    --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 5.0 \
+    --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
+    --dropout 0.3 --weight-decay 0.0001 \
+    --criterion bidirectional_label_smoothed_cross_entropy --label-smoothing 0.1 \
+    --max-tokens 3584 --save-dir checkpoints/alignment \
+    --keep-last-epochs 10 --patience 10
+
+fairseq-generate data-bin/iwslt14.tokenized.de-en \
+    --path checkpoints/forward/checkpoint_best.pt \
+    --batch-size 128 --beam 5 --remove-bpe --quiet
+```
+
+To reproduce a bidirectional Transformer with alignment
+```shell
+fairseq-train --task aligned_translation \
+    data-bin/iwslt14.tokenized.de-en \
+    --arch aligned_transformer_iwslt_de_en --share-decoder-input-output-embed \
+    --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 5.0 \
+    --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
+    --dropout 0.3 --weight-decay 0.0001 \
+    --criterion bidirectional_label_smoothed_cross_entropy_with_mse --label-smoothing 0.1 \
+    --max-tokens 3584 --save-dir checkpoints/alignment \
+    --keep-last-epochs 10 --patience 10
+
+fairseq-generate data-bin/iwslt14.tokenized.de-en \
+    --path checkpoints/alignment/checkpoint_best.pt \
+    --batch-size 128 --beam 5 --remove-bpe --quiet
+```
+
+To reproduce a bidirectional Transformer with alignment and better decoder
+```shell
+fairseq-train --task aligned_translation \
+    data-bin/iwslt14.tokenized.de-en \
+    --arch aligned_transformer_iwslt_de_en --share-decoder-input-output-embed \
+    --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 5.0 \
+    --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
+    --dropout 0.3 --weight-decay 0.0001 \
+    --criterion bidirectional_label_smoothed_cross_entropy_with_mse --label-smoothing 0.1 \
+    --max-tokens 3584 --save-dir checkpoints/alignment_lm \
+    --keep-last-epochs 10 --patience 10
+
+fairseq-train --task aligned_translation \
+    data-bin/iwslt14.tokenized.de-en \
+    --arch aligned_transformer_iwslt_de_en --share-decoder-input-output-embed \
+    --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 5.0 \
+    --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
+    --dropout 0.3 --weight-decay 0.0001 \
+    --criterion bidirectional_label_smoothed_cross_entropy_lm --label-smoothing 0.1 \
+    --max-tokens 3584 --save-dir checkpoints/alignment_lm \
+    --keep-last-epochs 10 --patience 10
+
+fairseq-train --task aligned_translation \
+    data-bin/iwslt14.tokenized.de-en \
+    --arch aligned_transformer_iwslt_de_en --share-decoder-input-output-embed \
+    --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 5.0 \
+    --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
+    --dropout 0.3 --weight-decay 0.0001 \
+    --criterion bidirectional_label_smoothed_cross_entropy --label-smoothing 0.1 \
+    --max-tokens 3584 --save-dir checkpoints/alignment_lm \
+    --keep-last-epochs 10 --patience 10
+
+fairseq-generate data-bin/iwslt14.tokenized.de-en \
+    --path checkpoints/alignment_lm/checkpoint_best.pt \
+    --batch-size 128 --beam 5 --remove-bpe --quiet
+```
+
+<!-- ## WMT16 En-De
+
+To get the binary dataset, follow [fairseq's example](https://github.com/pytorch/fairseq/tree/master/examples/scaling_nmt)
+
+Download `wmt16_en_de.tar.gz` from [Google Drive](https://drive.google.com/uc?export=download&id=0B_bZck-ksdkpM25jRUN2X2UxMm8)
+```shell
+TEXT=wmt16_en_de_bpe32k
+mkdir -p $TEXT
+tar -xzvf wmt16_en_de.tar.gz -C $TEXT
+
+fairseq-preprocess \
+    --source-lang en --target-lang de \
+    --trainpref $TEXT/train.tok.clean.bpe.32000 \
+    --validpref $TEXT/newstest2013.tok.bpe.32000 \
+    --testpref $TEXT/newstest2014.tok.bpe.32000 \
+    --destdir data-bin/wmt16_en_de_bpe32k \
+    --nwordssrc 32768 --nwordstgt 32768 \
+    --joined-dictionary \
+    --workers 20
+```
+
+To reproduce a forward Transformer baseline
+```shell
+fairseq-train \
+    data-bin/iwslt14.tokenized.de-en -s en -t de \
+    --arch transformer_iwslt_de_en --share-decoder-input-output-embed \
+    --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 5.0 \
+    --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
+    --dropout 0.3 --weight-decay 0.0001 \
+    --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
+    --max-tokens 3584 --save-dir checkpoints/backward \
+    --keep-last-epochs 10 --patience 10
+
+fairseq-generate data-bin/iwslt14.tokenized.de-en \
+    --path checkpoints/backward/checkpoint_best.pt \
+    --batch-size 128 --beam 5 --remove-bpe --quiet
+```
+ -->

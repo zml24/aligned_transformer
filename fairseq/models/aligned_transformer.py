@@ -327,6 +327,10 @@ class AlignedTransformerModel(BaseFairseqModel):
             self.src_decoder.max_positions(), self.tgt_decoder.max_positions(),
         )
 
+    def max_decoder_positions(self):
+        """Maximum length supported by the decoder."""
+        return max(self.src_decoder.max_positions(), self.tgt_decoder.max_positions())
+
     @torch.jit.export
     def get_normalized_probs(
         self,

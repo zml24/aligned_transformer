@@ -77,8 +77,8 @@ def collate(
 
     tgt_tokens = merge(
         "target",
-        left_pad=left_pad_target,
-        pad_to_length=pad_to_length["target"]
+        left_pad=left_pad_source,
+        pad_to_length=pad_to_length["source"]
         if pad_to_length is not None
         else None,
     )
@@ -95,9 +95,9 @@ def collate(
         # previous output source token(s) into the next decoder step
         prev_output_src_tokens = merge(
             "source",
-            left_pad=left_pad_source,
+            left_pad=left_pad_target,
             move_eos_to_beginning=True,
-            pad_to_length=pad_to_length["source"]
+            pad_to_length=pad_to_length["target"]
             if pad_to_length is not None
             else None,
         )

@@ -89,6 +89,9 @@ def _main(cfg: DictConfig, output_file):
     except NotImplementedError:
         src_dict = None
     tgt_dict = task.target_dictionary
+    direction = cfg.generation.direction
+    if direction is not None and direction[-1] == "s":
+        src_dict, tgt_dict = tgt_dict, src_dict
 
     overrides = ast.literal_eval(cfg.common_eval.model_overrides)
 
@@ -210,21 +213,55 @@ def _main(cfg: DictConfig, output_file):
         gen_timer.stop(num_generated_tokens)
 
         for i, sample_id in enumerate(sample["id"].tolist()):
-            has_target = sample["target"] is not None
+            if direction is None:
+                has_target = sample["target"] is not None
+                
+                # Remove padding
+                if "src_tokens" in sample["net_input"]:
+                    src_tokens = utils.strip_pad(
+                        sample["net_input"]["src_tokens"][i, :], tgt_dict.pad()
+                    )
+                else:
+                    src_tokens = None
 
-            # Remove padding
-            if "src_tokens" in sample["net_input"]:
+                target_tokens = None
+                if has_target:
+                    target_tokens = (
+                        utils.strip_pad(sample["target"][i, :], tgt_dict.pad()).int().cpu()
+                    )
+            elif direction == "s2t":
+                has_target = True
+
                 src_tokens = utils.strip_pad(
                     sample["net_input"]["src_tokens"][i, :], tgt_dict.pad()
                 )
-            else:
-                src_tokens = None
-
-            target_tokens = None
-            if has_target:
                 target_tokens = (
-                    utils.strip_pad(sample["target"][i, :], tgt_dict.pad()).int().cpu()
+                    utils.strip_pad(sample["net_input"]["tgt_tokens"][i, :], tgt_dict.pad()).int().cpu()
                 )
+            elif direction == "s2s":
+                src_tokens = utils.strip_pad(
+                    sample["net_input"]["src_tokens"][i, :], tgt_dict.pad()
+                )
+                target_tokens = (
+                    utils.strip_pad(sample["net_input"]["src_tokens"][i, :], tgt_dict.pad()).int().cpu()
+                )
+            elif direction == "t2s":
+                src_tokens = utils.strip_pad(
+                    sample["net_input"]["tgt_tokens"][i, :], tgt_dict.pad()
+                )
+                target_tokens = (
+                    utils.strip_pad(sample["net_input"]["src_tokens"][i, :], tgt_dict.pad()).int().cpu()
+                )
+            elif direction == "t2t":
+                src_tokens = utils.strip_pad(
+                    sample["net_input"]["tgt_tokens"][i, :], tgt_dict.pad()
+                )
+                target_tokens = (
+                    utils.strip_pad(sample["net_input"]["tgt_tokens"][i, :], tgt_dict.pad()).int().cpu()
+                )
+            else:
+                raise NotImplementedError
+
 
             # Either retrieve the original sentences or regenerate them from tokens.
             if align_dict is not None:
