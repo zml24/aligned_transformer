@@ -44,8 +44,7 @@ class BidirectionalLabelSmoothedCrossEntropyCriterion(
             "tgt_sample_size": tgt_sample_size,
         }
         loss = s2t_loss + t2s_loss
-        loss = loss / (src_sample_size + tgt_sample_size)
-        sample_size = src_sample_size + tgt_sample_size
+        sample_size = src_sample_size + tgt_sample_size / 2
         return loss, sample_size, logging_output
 
     def compute_loss(self, model, net_output, sample, reduce=True):
