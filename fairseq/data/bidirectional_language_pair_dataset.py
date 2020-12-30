@@ -66,30 +66,30 @@ def collate(
         left_pad=left_pad_source,
         pad_to_length=pad_to_length["source"] if pad_to_length is not None else None,
     )
-    # sort by descending source length
-    src_lengths = torch.LongTensor(
-        [s["source"].ne(pad_idx).long().sum() for s in samples]
-    )
-    src_lengths, sort_order = src_lengths.sort(descending=True)
-    id = id.index_select(0, sort_order)
-    src_tokens = src_tokens.index_select(0, sort_order)
-    src_ntokens = src_lengths.sum().item()
-
     tgt_tokens = merge(
         "target",
         left_pad=left_pad_source,
-        pad_to_length=pad_to_length["source"]
-        if pad_to_length is not None
-        else None,
+        pad_to_length=pad_to_length["source"] if pad_to_length is not None else None,
     )
-    tgt_tokens = tgt_tokens.index_select(0, sort_order)
+    # sort by descending length
+    src_lengths = torch.LongTensor(
+        [s["source"].ne(pad_idx).long().sum() for s in samples]
+    )
     tgt_lengths = torch.LongTensor(
         [s["target"].ne(pad_idx).long().sum() for s in samples]
-    ).index_select(0, sort_order)
+    )
+    lengths = src_lengths + tgt_lengths
+    _, sort_order = lengths.sort(descending=True)
+    id = id.index_select(0, sort_order)
+    src_tokens = src_tokens.index_select(0, sort_order)
+    src_ntokens = src_lengths.sum().item()
+    src_lengths = src_lengths.index_select(0, sort_order)
+    tgt_tokens = tgt_tokens.index_select(0, sort_order)
     tgt_ntokens = tgt_lengths.sum().item()
+    tgt_lengths = tgt_lengths.index_select(0, sort_order)
 
     if samples[0].get("prev_output_src_tokens", None) is not None:
-        prev_output_src_tokens = merge("prev_output_src_tokens", left_pad=left_pad_source)
+        prev_output_src_tokens = merge("prev_output_src_tokens", left_pad=left_pad_target)
     elif input_feeding:
         # we create a shifted version of targets for feeding the
         # previous output source token(s) into the next decoder step
