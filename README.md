@@ -217,12 +217,12 @@ Please cite as:
 
 # Aligned Transformer
 
-|       Model        | IWSLT14 De-En | IWSLT14 En-De | WMT16 En-De |
-| :----------------: | :-----------: | :-----------: | :---------: |
-|    Transformer     |       1       |       3       |    27.70    |
-|   Ours. No align   |       2       |       4       |      5      |
-|   Ours. Aligned    |       6       |       7       |      8      |
-| Ours. Aligned + lm |       9       |      10       |     11      |
+|       Model        | IWSLT14 De-En | IWSLT14 En-De |
+| :----------------: | :-----------: | :-----------: |
+|    Transformer     |     34.61     |     28.31     |
+|   Ours. No align   |       2       |       4       | 
+|   Ours. Aligned    |       6       |       7       | 
+| Ours. Aligned + lm |       9       |      10       | 
 
 ## IWSLT14 De-En
 
@@ -253,22 +253,10 @@ fairseq-train \
     --max-tokens 3584 --save-dir checkpoints/forward \
     --keep-last-epochs 10 --patience 10
 
-python scripts/average_checkpoints.py \
-    --inputs checkpoints/forward \
-    --num-epoch-checkpoints 10 \
-    --output checkpoints/forward/checkpoint.avg10.pt
-
 fairseq-generate \
     data-bin/iwslt14.tokenized.de-en \
-    --path checkpoints/forward/checkpoint.avg10.pt \
-    --batch-size 128 --beam 5 --remove-bpe > checkpoints/forward/gen.out
-
-bash scripts/compound_split_bleu.sh checkpoints/forward/gen.out
-
-# fairseq-generate
-#     data-bin/iwslt14.tokenized.de-en \
-#     --path checkpoints/forward/checkpoint_best.pt \
-#     --batch-size 128 --beam 5 --remove-bpe --quiet
+    --path checkpoints/forward/checkpoint_best.pt \
+    --batch-size 128 --beam 5 --remove-bpe --quiet
 ```
 
 To reproduce a backward Transformer baseline
@@ -283,23 +271,10 @@ fairseq-train \
     --max-tokens 3584 --save-dir checkpoints/backward \
     --keep-last-epochs 10 --patience 10
 
-python scripts/average_checkpoints.py \
-    --inputs checkpoints/backward \
-    --num-epoch-checkpoints 10 \
-    --output checkpoints/backward/checkpoint.avg10.pt
-
 fairseq-generate \
     data-bin/iwslt14.tokenized.de-en -s en -t de \
-    --path checkpoints/backward/checkpoint.avg10.pt \
-    --batch-size 128 --beam 5 --remove-bpe > checkpoints/backward/gen.out
-
-bash scripts/compound_split_bleu.sh checkpoints/backward/gen.out
-
-# 27.35
-# fairseq-generate
-#     data-bin/iwslt14.tokenized.de-en -s en -t de \
-#     --path checkpoints/backward/checkpoint_best.pt \
-#     --batch-size 128 --beam 5 --remove-bpe --quiet
+    --path checkpoints/backward/checkpoint_best.pt \
+    --batch-size 128 --beam 5 --remove-bpe --quiet
 ```
 
 To reproduce a bidirectional Transformer
