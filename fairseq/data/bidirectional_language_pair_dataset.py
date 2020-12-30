@@ -66,10 +66,20 @@ def collate(
         left_pad=left_pad_source,
         pad_to_length=pad_to_length["source"] if pad_to_length is not None else None,
     )
+    source = merge(
+        "source",
+        left_pad=left_pad_target,
+        pad_to_length=pad_to_length["target"] if pad_to_length is not None else None,
+    )
     tgt_tokens = merge(
         "target",
         left_pad=left_pad_source,
         pad_to_length=pad_to_length["source"] if pad_to_length is not None else None,
+    )
+    target = merge(
+        "target",
+        left_pad=left_pad_target,
+        pad_to_length=pad_to_length["target"] if pad_to_length is not None else None,
     )
     # sort by descending length
     src_lengths = torch.LongTensor(
@@ -84,9 +94,11 @@ def collate(
     src_tokens = src_tokens.index_select(0, sort_order)
     src_ntokens = src_lengths.sum().item()
     src_lengths = src_lengths.index_select(0, sort_order)
+    source = source.index_select(0, sort_order)
     tgt_tokens = tgt_tokens.index_select(0, sort_order)
     tgt_ntokens = tgt_lengths.sum().item()
     tgt_lengths = tgt_lengths.index_select(0, sort_order)
+    target = target.index_select(0, sort_order)
 
     if samples[0].get("prev_output_src_tokens", None) is not None:
         prev_output_src_tokens = merge("prev_output_src_tokens", left_pad=left_pad_target)
@@ -127,6 +139,8 @@ def collate(
             "tgt_tokens": tgt_tokens,
             "tgt_lengths": tgt_lengths,
         },
+        "source": source,
+        "target": target,
     }
     if prev_output_src_tokens is not None:
         batch["net_input"]["prev_output_src_tokens"] = prev_output_src_tokens.index_select(

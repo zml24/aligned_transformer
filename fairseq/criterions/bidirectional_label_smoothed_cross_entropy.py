@@ -26,10 +26,10 @@ class BidirectionalLabelSmoothedCrossEntropyCriterion(
         net_output = model(**sample["net_input"])
         s2t_loss, s2t_nll_loss, t2s_loss, t2s_nll_loss = self.compute_loss(model, net_output, sample, reduce=reduce)
         src_sample_size = (
-            sample["net_input"]["src_tokens"].size(0) if self.sentence_avg else sample["src_ntokens"]
+            sample["source"].size(0) if self.sentence_avg else sample["src_ntokens"]
         )
         tgt_sample_size = (
-            sample["net_input"]["tgt_tokens"].size(0) if self.sentence_avg else sample["tgt_ntokens"]
+            sample["target"].size(0) if self.sentence_avg else sample["tgt_ntokens"]
         )
         logging_output = {
             "s2t_loss": s2t_loss.data,
@@ -44,15 +44,15 @@ class BidirectionalLabelSmoothedCrossEntropyCriterion(
             "tgt_sample_size": tgt_sample_size,
         }
         loss = s2t_loss + t2s_loss
-        sample_size = src_sample_size + tgt_sample_size / 2
+        sample_size = src_sample_size + tgt_sample_size
         return loss, sample_size, logging_output
 
     def compute_loss(self, model, net_output, sample, reduce=True):
         src_lprobs, tgt_lprobs = model.get_normalized_probs(net_output, log_probs=True)
         src_lprobs = src_lprobs.view(-1, src_lprobs.size(-1))
         tgt_lprobs = tgt_lprobs.view(-1, tgt_lprobs.size(-1))
-        source = model.get_src_tokens(sample, net_output).view(-1, 1)
-        target = model.get_tgt_tokens(sample, net_output).view(-1, 1)
+        source = model.get_sources(sample, net_output).view(-1, 1)
+        target = model.get_targets(sample, net_output).view(-1, 1)
         s2t_loss, s2t_nll_loss = label_smoothed_nll_loss(
             tgt_lprobs,
             target,
@@ -132,10 +132,10 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionLM(
         net_output = model(**sample["net_input"])
         s2s_loss, t2t_loss = self.compute_loss(model, net_output, sample, reduce=reduce)
         src_sample_size = (
-            sample["net_input"]["src_tokens"].size(0) if self.sentence_avg else sample["src_ntokens"]
+            sample["source"].size(0) if self.sentence_avg else sample["src_ntokens"]
         )
         tgt_sample_size = (
-            sample["net_input"]["tgt_tokens"].size(0) if self.sentence_avg else sample["tgt_ntokens"]
+            sample["target"].size(0) if self.sentence_avg else sample["tgt_ntokens"]
         )
         logging_output = {
             "s2s_loss": s2s_loss.data,
@@ -155,8 +155,8 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionLM(
         src_lprobs, tgt_lprobs = model.get_normalized_probs(net_output, log_probs=True)
         src_lprobs = src_lprobs.view(-1, src_lprobs.size(-1))
         tgt_lprobs = tgt_lprobs.view(-1, tgt_lprobs.size(-1))
-        source = model.get_src_tokens(sample, net_output).view(-1, 1).squeeze()
-        target = model.get_tgt_tokens(sample, net_output).view(-1, 1).squeeze()
+        source = model.get_sources(sample, net_output).view(-1, 1).squeeze()
+        target = model.get_targets(sample, net_output).view(-1, 1).squeeze()
         s2s_loss = F.nll_loss(
             src_lprobs,
             source,
@@ -242,10 +242,10 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionWithMSE(
         net_output = model(**sample["net_input"])
         s2t_loss, s2t_nll_loss, t2s_loss, t2s_nll_loss, mse_loss = self.compute_loss(model, net_output, sample, reduce=reduce)
         src_sample_size = (
-            sample["net_input"]["src_tokens"].size(0) if self.sentence_avg else sample["src_ntokens"]
+            sample["source"].size(0) if self.sentence_avg else sample["src_ntokens"]
         )
         tgt_sample_size = (
-            sample["net_input"]["tgt_tokens"].size(0) if self.sentence_avg else sample["tgt_ntokens"]
+            sample["target"].size(0) if self.sentence_avg else sample["tgt_ntokens"]
         )
         logging_output = {
             "s2t_loss": s2t_loss.data,
@@ -268,8 +268,8 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionWithMSE(
         src_lprobs, tgt_lprobs = model.get_normalized_probs(net_output, log_probs=True)
         src_lprobs = src_lprobs.view(-1, src_lprobs.size(-1))
         tgt_lprobs = tgt_lprobs.view(-1, tgt_lprobs.size(-1))
-        source = model.get_src_tokens(sample, net_output).view(-1, 1)
-        target = model.get_tgt_tokens(sample, net_output).view(-1, 1)
+        source = model.get_sources(sample, net_output).view(-1, 1)
+        target = model.get_targets(sample, net_output).view(-1, 1)
         s2t_loss, s2t_nll_loss = label_smoothed_nll_loss(
             tgt_lprobs,
             target,

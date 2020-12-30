@@ -312,13 +312,13 @@ class AlignedTransformerModel(BaseFairseqModel):
         else:
             raise NotImplementedError
 
-    def get_src_tokens(self, sample, net_output):
+    def get_sources(self, sample, net_output):
         """Get sources from either the sample or the net's output."""
-        return sample["net_input"]["src_tokens"]
+        return sample["source"]
 
-    def get_tgt_tokens(self, sample, net_output):
+    def get_targets(self, sample, net_output):
         """Get targets from either the sample or the net's output."""
-        return sample["net_input"]["tgt_tokens"]
+        return sample["target"]
 
     def max_positions(self):
         """Maximum length supported by the model."""
