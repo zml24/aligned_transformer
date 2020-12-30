@@ -34,6 +34,7 @@ class SequenceGenerator(nn.Module):
         symbols_to_strip_from_output=None,
         lm_model=None,
         lm_weight=1.0,
+        direction=None,
     ):
         """Generates translations of a given source sentence.
 
@@ -103,6 +104,8 @@ class SequenceGenerator(nn.Module):
         self.lm_weight = lm_weight
         if self.lm_model is not None:
             self.lm_model.eval()
+        
+        self.direction = direction
 
     def cuda(self):
         self.model.cuda()
@@ -191,21 +194,30 @@ class SequenceGenerator(nn.Module):
         )
         net_input = sample["net_input"]
 
-        if "src_tokens" in net_input:
-            src_tokens = net_input["src_tokens"]
-            # length of the source text being the character length except EndOfSentence and pad
+        if self.direction is None:
+            if "src_tokens" in net_input:
+                src_tokens = net_input["src_tokens"]
+                # length of the source text being the character length except EndOfSentence and pad
+                src_lengths = (
+                    (src_tokens.ne(self.eos) & src_tokens.ne(self.pad)).long().sum(dim=1)
+                )
+            elif "source" in net_input:
+                src_tokens = net_input["source"]
+                src_lengths = (
+                    net_input["padding_mask"].size(-1) - net_input["padding_mask"].sum(-1)
+                    if net_input["padding_mask"] is not None
+                    else torch.tensor(src_tokens.size(-1)).to(src_tokens)
+                )
+            else:
+                raise Exception("expected src_tokens or source in net input")
+        else:
+            if self.direction[-1] == "t":
+                src_tokens = net_input["src_tokens"]
+            else:
+                src_tokens = net_input["tgt_tokens"]
             src_lengths = (
                 (src_tokens.ne(self.eos) & src_tokens.ne(self.pad)).long().sum(dim=1)
             )
-        elif "source" in net_input:
-            src_tokens = net_input["source"]
-            src_lengths = (
-                net_input["padding_mask"].size(-1) - net_input["padding_mask"].sum(-1)
-                if net_input["padding_mask"] is not None
-                else torch.tensor(src_tokens.size(-1)).to(src_tokens)
-            )
-        else:
-            raise Exception("expected src_tokens or source in net input")
 
         # bsz: total number of sentences in beam
         # Note that src_tokens may have more than 2 dimenions (i.e. audio features)

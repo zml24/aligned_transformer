@@ -391,6 +391,8 @@ class AlignedTranslationTask(LegacyFairseqTask):
                 search_strategy = search.BeamSearch(self.source_dictionary)
 
         extra_gen_cls_kwargs = extra_gen_cls_kwargs or {}
+        if direction is not None:
+            extra_gen_cls_kwargs["direction"]=direction
         if seq_gen_cls is None:
             if getattr(args, "print_alignment", False):
                 seq_gen_cls = SequenceGeneratorWithAlignment
