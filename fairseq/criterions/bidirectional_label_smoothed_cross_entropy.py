@@ -294,7 +294,7 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionWithMSE(
         elif src_len < tgt_len:
             kernel_size = tgt_len - src_len + 1
             tgt_encoder_out = F.avg_pool1d(tgt_encoder_out.permute(0, 2, 1), kernel_size=kernel_size, stride=1).permute(0, 2, 1)
-        mse_loss = F.mse_loss(src_encoder_out, tgt_encoder_out, reduction="sum")
+        mse_loss = F.mse_loss(src_encoder_out, tgt_encoder_out)
         return s2t_loss, s2t_nll_loss, t2s_loss, t2s_nll_loss, mse_loss
 
     @staticmethod
@@ -311,7 +311,7 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionWithMSE(
         mse_loss_sum = utils.item(sum(log.get("mse_loss", 0) for log in logging_outputs))
 
         metrics.log_scalar(
-            "loss", s2t_loss_sum / tgt_sample_size / math.log(2) + t2s_loss_sum / src_sample_size / math.log(2) + mse_loss_sum / min(src_sample_size, tgt_sample_size), round=3
+            "loss", s2t_loss_sum / tgt_sample_size / math.log(2) + t2s_loss_sum / src_sample_size / math.log(2) + mse_loss_sum, round=3
         )
         metrics.log_scalar(
             "s2t_loss", s2t_loss_sum / tgt_sample_size / math.log(2), tgt_sample_size, round=3
@@ -320,7 +320,7 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionWithMSE(
             "t2s_loss", t2s_loss_sum / src_sample_size / math.log(2), src_sample_size, round=3
         )
         metrics.log_scalar(
-            "mse_loss", mse_loss_sum / min(src_sample_size, tgt_sample_size), round=3
+            "mse_loss", mse_loss_sum, round=3
         )
         metrics.log_scalar(
             "s2t_nll_loss", s2t_nll_loss_sum / tgt_ntokens / math.log(2), tgt_ntokens, round=3

@@ -1,11 +1,11 @@
 # Aligned Transformer
 
-|       Model        | IWSLT14 De-En | IWSLT14 En-De |
+|  Model (bleu/ppl)  | IWSLT14 De-En | IWSLT14 En-De |
 | :----------------: | :-----------: | :-----------: |
-|    Transformer     |     34.61     |     28.31     |
-|   Ours. No align   |       2       |       4       |
-|   Ours. Aligned    |       6       |       7       |
-| Ours. Aligned + lm |       9       |      10       |
+|    Transformer     |  34.61/4.99   |  28.31/5.48   |
+|   Ours. No align   |       -       |       -       |
+|   Ours. Aligned    |       -       |       -       |
+| Ours. Aligned + lm |       -       |       -       |
 
 ## Installation
 
