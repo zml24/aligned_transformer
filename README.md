@@ -1,11 +1,13 @@
 # Aligned Transformer
 
-|  Model (bleu/ppl)  | IWSLT14 De-En | IWSLT14 En-De |
-| :----------------: | :-----------: | :-----------: |
-|    Transformer     |  34.61/4.99   |  28.31/5.48   |
-|   Ours. No align   |       -       |       -       |
-|   Ours. Aligned    |       -       |       -       |
-| Ours. Aligned + lm |       -       |       -       |
+## Results (test bleu/test scarebleu/valid last ppl)
+
+|       Model        |      IWSLT14 De-En       |        IWSLT14 En-De         |
+| :----------------: | :----------------------: | :--------------------------: |
+|    Transformer     | **34.66**/**34.61**/4.99 |       28.33/28.31/5.48       |
+|   Ours. No align   |   34.64/34.59/**4.97**   |       28.63/28.54/5.48       |
+|   Ours. Aligned    |     34.58/34.52/5.02     | **28.91**/**28.85**/**5.46** |
+| Ours. Aligned + lm |            -             |              -               |
 
 ## Installation
 
@@ -63,7 +65,9 @@ fairseq-train \
 fairseq-generate \
     data-bin/iwslt14.tokenized.de-en \
     --path checkpoints/forward/checkpoint_best.pt \
-    --batch-size 128 --beam 5 --remove-bpe --quiet
+    --batch-size 128 --beam 5 --remove-bpe > checkpoints/forward/gen.out
+
+bash scripts/compound_split_bleu.sh checkpoints/forward/gen.out
 ```
 
 To reproduce a backward Transformer baseline
@@ -81,7 +85,9 @@ fairseq-train \
 fairseq-generate \
     data-bin/iwslt14.tokenized.de-en -s en -t de \
     --path checkpoints/backward/checkpoint_best.pt \
-    --batch-size 128 --beam 5 --remove-bpe --quiet
+    --batch-size 128 --beam 5 --remove-bpe > checkpoints/backward/gen.out
+
+bash scripts/compound_split_bleu.sh checkpoints/backward/gen.out
 ```
 
 To reproduce a bidirectional Transformer
@@ -99,12 +105,16 @@ fairseq-train --task aligned_translation \
 fairseq-generate --task aligned_translation --direction s2t \
     data-bin/iwslt14.tokenized.de-en \
     --path checkpoints/bidirection/checkpoint_best.pt \
-    --batch-size 128 --beam 5 --remove-bpe --quiet
+    --batch-size 128 --beam 5 --remove-bpe > checkpoints/bidirection/gen_s2t.out
+
+bash scripts/compound_split_bleu.sh checkpoints/bidirection/gen_s2t.out
 
 fairseq-generate --task aligned_translation --direction t2s \
     data-bin/iwslt14.tokenized.de-en \
     --path checkpoints/bidirection/checkpoint_best.pt \
-    --batch-size 128 --beam 5 --remove-bpe --quiet
+    --batch-size 128 --beam 5 --remove-bpe > checkpoints/bidirection/gen_t2s.out
+
+bash scripts/compound_split_bleu.sh checkpoints/bidirection/gen_t2s.out
 ```
 
 To reproduce a bidirectional Transformer with alignment
@@ -122,12 +132,16 @@ fairseq-train --task aligned_translation \
 fairseq-generate --task aligned_translation --direction s2t \
     data-bin/iwslt14.tokenized.de-en \
     --path checkpoints/alignment/checkpoint_best.pt \
-    --batch-size 128 --beam 5 --remove-bpe --quiet
+    --batch-size 128 --beam 5 --remove-bpe > checkpoints/alignment/gen_s2t.out
+
+bash scripts/compound_split_bleu.sh checkpoints/alignment/gen_s2t.out
 
 fairseq-generate --task aligned_translation --direction t2s \
     data-bin/iwslt14.tokenized.de-en \
     --path checkpoints/alignment/checkpoint_best.pt \
-    --batch-size 128 --beam 5 --remove-bpe --quiet
+    --batch-size 128 --beam 5 --remove-bpe > checkpoints/alignment/gen_t2s.out
+
+bash scripts/compound_split_bleu.sh checkpoints/alignment/gen_t2s.out
 ```
 
 To reproduce a bidirectional Transformer with alignment and better decoder

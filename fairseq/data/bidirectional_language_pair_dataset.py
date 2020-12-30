@@ -90,6 +90,7 @@ def collate(
     )
     lengths = src_lengths + tgt_lengths
     _, sort_order = lengths.sort(descending=True)
+    _, sort_order = src_lengths.sort(descending=True)
     id = id.index_select(0, sort_order)
     src_tokens = src_tokens.index_select(0, sort_order)
     src_ntokens = src_lengths.sum().item()

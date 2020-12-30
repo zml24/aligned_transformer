@@ -47,18 +47,35 @@ class FairseqEncoder(nn.Module):
         this method for TorchScript compatibility.
         """
         if torch.jit.is_scripting():
-            return self.forward(
-                src_tokens=net_input["src_tokens"],
-                src_lengths=net_input["src_lengths"],
-            )
+            if "direction" in net_input and net_input["direction"][0] == "t":
+                return self.forward(
+                    src_tokens=net_input["tgt_tokens"],
+                    src_lengths=net_input["tgt_lengths"],
+                )
+            else:
+                return self.forward(
+                    src_tokens=net_input["src_tokens"],
+                    src_lengths=net_input["src_lengths"],
+                )
         else:
             return self.forward_non_torchscript(net_input)
 
     @torch.jit.unused
     def forward_non_torchscript(self, net_input: Dict[str, Tensor]):
-        encoder_input = {
-            k: v for k, v in net_input.items() if k != "prev_output_tokens"
-        }
+        if "direction" not in net_input:
+            encoder_input = {
+                k: v for k, v in net_input.items() if k != "prev_output_tokens"
+            }
+        elif net_input["direction"][0] == "s":
+            encoder_input = {
+                "src_tokens": net_input["src_tokens"],
+                "src_lengths": net_input["src_lengths"],
+            }
+        else:
+            encoder_input = {
+                "src_tokens": net_input["tgt_tokens"],
+                "src_lengths": net_input["tgt_lengths"],
+            }
         return self.forward(**encoder_input)
 
     def reorder_encoder_out(self, encoder_out, new_order):

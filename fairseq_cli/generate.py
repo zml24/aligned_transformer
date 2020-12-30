@@ -136,6 +136,15 @@ def _main(cfg: DictConfig, output_file):
         if use_cuda and not cfg.distributed_training.pipeline_model_parallel:
             model.cuda()
         model.prepare_for_inference_(cfg)
+        if cfg.generation.direction:
+            if cfg.generation.direction[0] == "s":
+                model.encoder = model.src_encoder
+            else:
+                model.encoder = model.tgt_encoder
+            if cfg.generation.direction[-1] == "s":
+                model.decoder = model.src_decoder
+            else:
+                model.decoder = model.tgt_decoder
 
     # Load alignment dictionary for unknown word replacement
     # (None if no unknown word replacement, empty if no path to align dictionary)

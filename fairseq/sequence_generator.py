@@ -245,6 +245,8 @@ class SequenceGenerator(nn.Module):
             self.min_len <= max_len
         ), "min_len cannot be larger than max_len, please adjust these!"
         # compute the encoder output for each beam
+        if self.direction is not None:
+            net_input["direction"] = self.direction
         encoder_outs = self.model.forward_encoder(net_input)
 
         # placeholder of indices for bsz * beam_size to hold tokens and accumulative scores
