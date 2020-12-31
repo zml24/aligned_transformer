@@ -195,6 +195,14 @@ class AlignedTransformerModel(BaseFairseqModel):
         tgt_encoder = cls.build_encoder(args, tgt_dict, tgt_encoder_embed_tokens)
         src_decoder = cls.build_decoder(args, src_dict, src_decoder_embed_tokens)
         tgt_decoder = cls.build_decoder(args, tgt_dict, tgt_decoder_embed_tokens)
+        if args.freeze_encoder:
+            for src_p, tgt_p in zip(src_encoder.parameters(), tgt_encoder.parameters()):
+                src_p.requires_grad = False
+                tgt_p.requires_grad = False
+        else:
+            for src_p, tgt_p in zip(src_encoder.parameters(), tgt_encoder.parameters()):
+                src_p.requires_grad = True
+                tgt_p.requires_grad = True
         return cls(args, src_encoder, tgt_encoder, src_decoder, tgt_decoder)
 
     @classmethod

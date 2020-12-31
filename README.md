@@ -1,13 +1,11 @@
 # Aligned Transformer
 
-## Results (test bleu/test scarebleu/valid last ppl)
-
-|       Model        |      IWSLT14 De-En       |        IWSLT14 En-De         |
-| :----------------: | :----------------------: | :--------------------------: |
-|    Transformer     | **34.66**/**34.61**/4.99 |       28.33/28.31/5.48       |
-|   Ours. No align   |   34.64/34.59/**4.97**   |       28.63/28.54/5.48       |
-|   Ours. Aligned    |     34.58/34.52/5.02     | **28.91**/**28.85**/**5.46** |
-| Ours. Aligned + lm |            -             |              -               |
+|       Model        | IWSLT14 De-En | IWSLT14 En-De |
+| :----------------: | :-----------: | :-----------: |
+|    Transformer     |   **34.66**   |     28.33     |
+|   Ours. No align   |     34.64     |     28.63     |
+|   Ours. Aligned    |     34.58     |   **28.91**   |
+| Ours. Aligned + lm |     34.44     |     28.44     |
 
 ## Installation
 
@@ -60,7 +58,7 @@ fairseq-train \
     --dropout 0.3 --weight-decay 0.0001 \
     --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
     --max-tokens 3584 --save-dir checkpoints/forward \
-    --keep-last-epochs 10 --patience 10
+    --keep-last-epochs 10 --patience 10 --log-interval 1
 
 fairseq-generate \
     data-bin/iwslt14.tokenized.de-en \
@@ -80,7 +78,7 @@ fairseq-train \
     --dropout 0.3 --weight-decay 0.0001 \
     --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
     --max-tokens 3584 --save-dir checkpoints/backward \
-    --keep-last-epochs 10 --patience 10
+    --keep-last-epochs 10 --patience 10 --log-interval 1
 
 fairseq-generate \
     data-bin/iwslt14.tokenized.de-en -s en -t de \
@@ -100,20 +98,19 @@ fairseq-train --task aligned_translation \
     --dropout 0.3 --weight-decay 0.0001 \
     --criterion bidirectional_label_smoothed_cross_entropy --label-smoothing 0.1 \
     --max-tokens 3584 --save-dir checkpoints/bidirection \
-    --keep-last-epochs 10 --patience 10
+    --keep-last-epochs 10 --patience 10 --log-interval 1
 
 fairseq-generate --task aligned_translation --direction s2t \
     data-bin/iwslt14.tokenized.de-en \
     --path checkpoints/bidirection/checkpoint_best.pt \
     --batch-size 128 --beam 5 --remove-bpe > checkpoints/bidirection/gen_s2t.out
 
-bash scripts/compound_split_bleu.sh checkpoints/bidirection/gen_s2t.out
-
 fairseq-generate --task aligned_translation --direction t2s \
     data-bin/iwslt14.tokenized.de-en \
     --path checkpoints/bidirection/checkpoint_best.pt \
     --batch-size 128 --beam 5 --remove-bpe > checkpoints/bidirection/gen_t2s.out
 
+bash scripts/compound_split_bleu.sh checkpoints/bidirection/gen_s2t.out
 bash scripts/compound_split_bleu.sh checkpoints/bidirection/gen_t2s.out
 ```
 
@@ -127,20 +124,19 @@ fairseq-train --task aligned_translation \
     --dropout 0.3 --weight-decay 0.0001 \
     --criterion bidirectional_label_smoothed_cross_entropy_with_mse --label-smoothing 0.1 \
     --max-tokens 3584 --save-dir checkpoints/alignment \
-    --keep-last-epochs 10 --patience 10
+    --keep-last-epochs 10 --patience 10 --log-interval 1
 
 fairseq-generate --task aligned_translation --direction s2t \
     data-bin/iwslt14.tokenized.de-en \
     --path checkpoints/alignment/checkpoint_best.pt \
     --batch-size 128 --beam 5 --remove-bpe > checkpoints/alignment/gen_s2t.out
 
-bash scripts/compound_split_bleu.sh checkpoints/alignment/gen_s2t.out
-
 fairseq-generate --task aligned_translation --direction t2s \
     data-bin/iwslt14.tokenized.de-en \
     --path checkpoints/alignment/checkpoint_best.pt \
     --batch-size 128 --beam 5 --remove-bpe > checkpoints/alignment/gen_t2s.out
 
+bash scripts/compound_split_bleu.sh checkpoints/alignment/gen_s2t.out
 bash scripts/compound_split_bleu.sh checkpoints/alignment/gen_t2s.out
 ```
 
@@ -154,20 +150,22 @@ fairseq-train --task aligned_translation \
     --dropout 0.3 --weight-decay 0.0001 \
     --criterion bidirectional_label_smoothed_cross_entropy_with_mse --label-smoothing 0.1 \
     --max-tokens 3584 --save-dir checkpoints/alignment_lm \
-    --keep-last-epochs 10 --patience 10
+    --keep-last-epochs 10 --patience 10 --log-interval 1
 
 # if you have trained a bidirectional Transformer with alignment
-# cp -r checkpoints/alignment checkpoints/alignment_lm
+# mkdir checkpoints/alignment_lm
+# cp -r checkpoints/alignment/checkpoint_last.pt checkpoints/alignment_lm
 
 fairseq-train --task aligned_translation \
-    data-bin/iwslt14.tokenized.de-en \
+    data-bin/iwslt14.tokenized.de-en --freeze-encoder \
     --arch aligned_transformer_iwslt_de_en --share-decoder-input-output-embed \
     --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 5.0 \
     --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
     --dropout 0.3 --weight-decay 0.0001 \
     --criterion bidirectional_label_smoothed_cross_entropy_lm --label-smoothing 0.1 \
     --max-tokens 3584 --save-dir checkpoints/alignment_lm \
-    --keep-last-epochs 10 --patience 10
+    --reset-dataloader --reset-lr-scheduler --reset-meters --reset-optimizer \
+    --max-epoch 1 --log-interval 1
 
 fairseq-train --task aligned_translation \
     data-bin/iwslt14.tokenized.de-en \
@@ -177,15 +175,19 @@ fairseq-train --task aligned_translation \
     --dropout 0.3 --weight-decay 0.0001 \
     --criterion bidirectional_label_smoothed_cross_entropy --label-smoothing 0.1 \
     --max-tokens 3584 --save-dir checkpoints/alignment_lm \
-    --keep-last-epochs 10 --patience 10
+    --reset-dataloader --reset-lr-scheduler --reset-meters --reset-optimizer \
+    --keep-last-epochs 10 --patience 10 --log-interval 1
 
 fairseq-generate --task aligned_translation --direction s2t \
     data-bin/iwslt14.tokenized.de-en \
     --path checkpoints/alignment_lm/checkpoint_best.pt \
-    --batch-size 128 --beam 5 --remove-bpe --quiet
+    --batch-size 128 --beam 5 --remove-bpe > checkpoints/alignment_lm/gen_s2t.out
 
 fairseq-generate --task aligned_translation --direction t2s \
     data-bin/iwslt14.tokenized.de-en \
     --path checkpoints/alignment_lm/checkpoint_best.pt \
-    --batch-size 128 --beam 5 --remove-bpe --quiet
+    --batch-size 128 --beam 5 --remove-bpe > checkpoints/alignment_lm/gen_t2s.out
+
+bash scripts/compound_split_bleu.sh checkpoints/alignment_lm/gen_s2t.out
+bash scripts/compound_split_bleu.sh checkpoints/alignment_lm/gen_t2s.out
 ```

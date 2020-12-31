@@ -130,7 +130,7 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionLM(
         """
         sample["net_input"]["train_mode"] = 2
         net_output = model(**sample["net_input"])
-        s2s_loss, t2t_loss = self.compute_loss(model, net_output, sample, reduce=reduce)
+        s2s_loss, s2s_nll_loss, t2t_loss, t2t_nll_loss = self.compute_loss(model, net_output, sample, reduce=reduce)
         src_sample_size = (
             sample["source"].size(0) if self.sentence_avg else sample["src_ntokens"]
         )
@@ -139,7 +139,9 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionLM(
         )
         logging_output = {
             "s2s_loss": s2s_loss.data,
+            "s2s_nll_loss": s2s_nll_loss.data,
             "t2t_loss": t2t_loss.data,
+            "t2t_nll_loss": t2t_nll_loss.data,
             "src_ntokens": sample["src_ntokens"],
             "tgt_ntokens": sample["tgt_ntokens"],
             "ntokens": sample["src_ntokens"] + sample["tgt_ntokens"],
@@ -155,29 +157,33 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionLM(
         src_lprobs, tgt_lprobs = model.get_normalized_probs(net_output, log_probs=True)
         src_lprobs = src_lprobs.view(-1, src_lprobs.size(-1))
         tgt_lprobs = tgt_lprobs.view(-1, tgt_lprobs.size(-1))
-        source = model.get_sources(sample, net_output).view(-1, 1).squeeze()
-        target = model.get_targets(sample, net_output).view(-1, 1).squeeze()
-        s2s_loss = F.nll_loss(
+        source = model.get_sources(sample, net_output).view(-1, 1)
+        target = model.get_targets(sample, net_output).view(-1, 1)
+        s2s_loss, s2s_nll_loss = label_smoothed_nll_loss(
             src_lprobs,
             source,
+            self.eps,
             ignore_index=self.padding_idx,
-            reduction="sum" if reduce else "none",
+            reduce=reduce,
         )
-        t2t_loss = F.nll_loss(
+        t2t_loss, t2t_nll_loss = label_smoothed_nll_loss(
             tgt_lprobs,
             target,
+            self.eps,
             ignore_index=self.padding_idx,
-            reduction="sum" if reduce else "none",
+            reduce=reduce,
         )
-        return s2s_loss, t2t_loss
+        return s2s_loss, s2s_nll_loss, t2t_loss, t2t_nll_loss
 
     @staticmethod
     def reduce_metrics(logging_outputs) -> None:
         """Aggregate logging outputs from data parallel training."""
         s2s_loss_sum = utils.item(sum(log.get("s2s_loss", 0) for log in logging_outputs))
+        s2s_nll_loss_sum = utils.item(sum(log.get("s2s_nll_loss", 0) for log in logging_outputs))
         src_ntokens = utils.item(sum(log.get("src_ntokens", 0) for log in logging_outputs))
         src_sample_size = utils.item(sum(log.get("src_sample_size", 0) for log in logging_outputs))
         t2t_loss_sum = utils.item(sum(log.get("t2t_loss", 0) for log in logging_outputs))
+        t2t_nll_loss_sum = utils.item(sum(log.get("t2t_nll_loss", 0) for log in logging_outputs))
         tgt_ntokens = utils.item(sum(log.get("tgt_ntokens", 0) for log in logging_outputs))
         tgt_sample_size = utils.item(sum(log.get("tgt_sample_size", 0) for log in logging_outputs))
 
@@ -190,28 +196,18 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionLM(
         metrics.log_scalar(
             "t2t_loss", t2t_loss_sum / tgt_sample_size / math.log(2), tgt_sample_size, round=3
         )
-        if src_sample_size != src_ntokens:
-            metrics.log_scalar(
-                "s2s_nll_loss", s2s_loss_sum / src_ntokens / math.log(2), src_ntokens, round=3
-            )
-            metrics.log_derived(
-                "s2s_ppl", lambda meters: utils.get_perplexity(meters["s2s_nll_loss"].avg)
-            )
-        else:
-            metrics.log_derived(
-                "s2s_ppl", lambda meters: utils.get_perplexity(meters["s2s_loss"].avg)
-            )
-        if tgt_sample_size != tgt_ntokens:
-            metrics.log_scalar(
-                "t2t_nll_loss", t2t_loss_sum / tgt_ntokens / math.log(2), tgt_ntokens, round=3
-            )
-            metrics.log_derived(
-                "t2t_ppl", lambda meters: utils.get_perplexity(meters["t2t_nll_loss"].avg)
-            )
-        else:
-            metrics.log_derived(
-                "t2t_ppl", lambda meters: utils.get_perplexity(meters["t2t_loss"].avg)
-            )
+        metrics.log_scalar(
+            "s2s_nll_loss", s2s_nll_loss_sum / src_ntokens / math.log(2), src_ntokens, round=3
+        )
+        metrics.log_scalar(
+            "t2t_nll_loss", t2t_nll_loss_sum / tgt_ntokens / math.log(2), tgt_ntokens, round=3
+        )
+        metrics.log_derived(
+            "s2s_ppl", lambda meters: utils.get_perplexity(meters["s2s_nll_loss"].avg)
+        )
+        metrics.log_derived(
+            "t2t_ppl", lambda meters: utils.get_perplexity(meters["t2t_nll_loss"].avg)
+        )
 
     @staticmethod
     def logging_outputs_can_be_summed() -> bool:
