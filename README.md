@@ -2,10 +2,10 @@
 
 |       Model        | IWSLT14 De-En | IWSLT14 En-De |
 | :----------------: | :-----------: | :-----------: |
-|    Transformer     |   **34.66**   |     28.33     |
+|    Transformer     |     34.66     |     28.33     |
 |   Ours. No align   |     34.64     |     28.63     |
 |   Ours. Aligned    |     34.58     |   **28.91**   |
-| Ours. Aligned + lm |     34.33     |     28.64     |
+| Ours. Aligned + lm |   **34.75**   |     28.54     |
 
 ## Installation
 
@@ -181,7 +181,7 @@ fairseq-train --task aligned_translation \
     --criterion bidirectional_label_smoothed_cross_entropy_lm --label-smoothing 0.1 \
     --max-tokens 3584 --save-dir $LM_CKT_DIR \
     --reset-dataloader --reset-lr-scheduler --reset-meters --reset-optimizer \
-    --keep-last-epochs 10 --patience 10 --max-epoch 100 --log-interval 1
+    --keep-last-epochs 10 --patience 10 --log-interval 1
 
 mkdir $MSE_CKT_DIR
 cp -r $LM_CKT_DIR/checkpoint_last.pt $MSE_CKT_DIR

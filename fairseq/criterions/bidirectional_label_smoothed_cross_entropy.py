@@ -138,9 +138,7 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionLM(
             sample["target"].size(0) if self.sentence_avg else sample["tgt_ntokens"]
         )
         logging_output = {
-            "s2s_loss": s2s_loss.data,
             "s2s_nll_loss": s2s_nll_loss.data,
-            "t2t_loss": t2t_loss.data,
             "t2t_nll_loss": t2t_nll_loss.data,
             "src_ntokens": sample["src_ntokens"],
             "tgt_ntokens": sample["tgt_ntokens"],
@@ -149,7 +147,7 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionLM(
             "src_sample_size": src_sample_size,
             "tgt_sample_size": tgt_sample_size,
         }
-        loss = s2s_loss + t2t_loss
+        loss = s2s_nll_loss + t2t_nll_loss
         sample_size = src_sample_size + tgt_sample_size
         return loss, sample_size, logging_output
 
@@ -178,23 +176,15 @@ class BidirectionalLabelSmoothedCrossEntropyCriterionLM(
     @staticmethod
     def reduce_metrics(logging_outputs) -> None:
         """Aggregate logging outputs from data parallel training."""
-        s2s_loss_sum = utils.item(sum(log.get("s2s_loss", 0) for log in logging_outputs))
         s2s_nll_loss_sum = utils.item(sum(log.get("s2s_nll_loss", 0) for log in logging_outputs))
         src_ntokens = utils.item(sum(log.get("src_ntokens", 0) for log in logging_outputs))
         src_sample_size = utils.item(sum(log.get("src_sample_size", 0) for log in logging_outputs))
-        t2t_loss_sum = utils.item(sum(log.get("t2t_loss", 0) for log in logging_outputs))
         t2t_nll_loss_sum = utils.item(sum(log.get("t2t_nll_loss", 0) for log in logging_outputs))
         tgt_ntokens = utils.item(sum(log.get("tgt_ntokens", 0) for log in logging_outputs))
         tgt_sample_size = utils.item(sum(log.get("tgt_sample_size", 0) for log in logging_outputs))
 
         metrics.log_scalar(
-            "loss", s2s_loss_sum / src_sample_size / math.log(2) + t2t_loss_sum / tgt_sample_size / math.log(2), round=3
-        )
-        metrics.log_scalar(
-            "s2s_loss", s2s_loss_sum / src_sample_size / math.log(2), src_sample_size, round=3
-        )
-        metrics.log_scalar(
-            "t2t_loss", t2t_loss_sum / tgt_sample_size / math.log(2), tgt_sample_size, round=3
+            "loss", s2s_nll_loss_sum / src_ntokens / math.log(2) + t2t_nll_loss_sum / tgt_ntokens / math.log(2), round=3
         )
         metrics.log_scalar(
             "s2s_nll_loss", s2s_nll_loss_sum / src_ntokens / math.log(2), src_ntokens, round=3
